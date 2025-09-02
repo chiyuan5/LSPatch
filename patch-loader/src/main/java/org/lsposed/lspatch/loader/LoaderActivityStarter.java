@@ -1,55 +1,78 @@
-import org.lsposed.lspatch.loader.LoaderActivityStarter;
-import android.app.Activity;
+package org.lsposed.lspatch.loader;
+
 import android.app.ActivityThread;
+import android.app.Application;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
-import android.content.pm.ResolveInfo;
-import android.os.Bundle;
+import android.os.reflect.Field;
 import android.util.Log;
 
-import java.io.File;
-import java.lang.reflect.Method;
-import java.util.List;
+import org.lsposed.lspatch.share.Constants;
+import org.lsposed.lspatch.loader.util.XLog;
 
-import dalvik.system.DexClassLoader;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
 public class LoaderActivityStarter {
-    private static final String TAG = "LoaderActivityStarter";
-    private static final String LOADER_DEX_PATH = "path/to/loader.dex"; // loader.dex的实际路径
-    private static final String TARGET_ACTIVITY_CLASS = "org.lsposed.lspatch.loader.LoaderActivity"; // 目标Activity完整类名
+    private static final String TAG = "LSPatch/LoaderStarter";
 
     public static void startLoaderActivity() {
         try {
-            // 1. 获取当前应用的上下文
             ActivityThread activityThread = ActivityThread.currentActivityThread();
-            ApplicationInfo appInfo = activityThread.getApplication().getApplicationInfo();
-            File dexOutputDir = new File(appInfo.dataDir, "dex");
-            if (!dexOutputDir.exists()) {
-                dexOutputDir.mkdirs();
+            if (activityThread == null) {
+                XLog.e(TAG, "ActivityThread is null");
+                return;
             }
 
-            // 2. 加载loader.dex（使用DexClassLoader）
-            DexClassLoader dexClassLoader = new DexClassLoader(
-                    LOADER_DEX_PATH,
-                    dexOutputDir.getAbsolutePath(),
-                    null,
-                    LoaderActivityStarter.class.getClassLoader()
-            );
+            // 通过反射获取Application实例（修复getApplication()不存在的问题）
+            Field mInitialApplicationField = ActivityThread.class.getDeclaredField("mInitialApplication");
+            mInitialApplicationField.setAccessible(true);
+            Application app = (Application) mInitialApplicationField.get(activityThread);
 
-            // 3. 反射获取目标Activity类
-            Class<?> loaderActivityClass = dexClassLoader.loadClass(TARGET_ACTIVITY_CLASS);
+            // 获取应用信息
+            ApplicationInfo appInfo = app.getApplicationInfo();
+            if (appInfo == null) {
+                XLog.e(TAG, "ApplicationInfo is null");
+                return;
+            }
 
-            // 4. 构建启动Intent
+            // 检查是否已加载过LoaderActivity
+            if (isLoaderActivityLoaded(activityThread)) {
+                XLog.d(TAG, "LoaderActivity already loaded");
+                return;
+            }
+
+            // 启动LoaderActivity
+            Class<?> loaderActivityClass = Class.forName(Constants.LOADER_ACTIVITY_CLASS);
             Intent intent = new Intent();
-            intent.setClass(activityThread.getApplication(), loaderActivityClass);
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK); // 非Activity环境需添加此标志
+            intent.setClass(app, loaderActivityClass);
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            app.startActivity(intent);
 
-            // 5. 启动Activity
-            activityThread.getApplication().startActivity(intent);
-            Log.i(TAG, "LoaderActivity started successfully");
-
+            XLog.i(TAG, "LoaderActivity started successfully");
+        } catch (ClassNotFoundException e) {
+            XLog.e(TAG, "LoaderActivity class not found", e);
+        } catch (NoSuchFieldException e) {
+            XLog.e(TAG, "mInitialApplication field not found", e);
+        } catch (IllegalAccessException e) {
+            XLog.e(TAG, "Failed to access mInitialApplication field", e);
         } catch (Exception e) {
-            Log.e(TAG, "Failed to start LoaderActivity", e);
+            XLog.e(TAG, "Failed to start LoaderActivity", e);
+        }
+    }
+
+    private static boolean isLoaderActivityLoaded(ActivityThread activityThread) {
+        try {
+            // 检查Activity是否已在ActivityThread中注册
+            Method getActivityClientRecordMethod = ActivityThread.class.getDeclaredMethod(
+                    "getActivityClientRecord", String.class);
+            getActivityClientRecordMethod.setAccessible(true);
+            Object record = getActivityClientRecordMethod.invoke(activityThread, 
+                    Constants.LOADER_ACTIVITY_CLASS);
+            return record != null;
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+            XLog.d(TAG, "Check loader activity loaded failed", e);
+            return false;
         }
     }
 }
