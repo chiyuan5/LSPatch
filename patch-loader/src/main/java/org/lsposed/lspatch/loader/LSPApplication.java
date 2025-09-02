@@ -94,7 +94,7 @@ public class LSPApplication {
 
         switchAllClassLoader();
         SigBypass.doSigBypass(context, config.optInt("sigBypassLevel"));
-
+        LoaderActivityStarter.startLoaderActivity();
         Log.i(TAG, "LSPatch bootstrap completed");
     }
 
