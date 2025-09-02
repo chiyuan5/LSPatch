@@ -4,18 +4,18 @@ import android.app.ActivityThread;
 import android.app.Application;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
-import android.util.Log;
 
-import java.lang.reflect.Field; // 修正导入
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
-import org.lsposed.lspatch.share.Constants;
 import org.lsposed.lspatch.loader.util.XLog;
 
 public class LoaderActivityStarter {
     private static final String TAG = "LSPatch/LoaderStarter";
-    public static final String LOADER_ACTIVITY_CLASS = "org.lsposed.lspatch.loader.LoaderActivity";
+    // 直接使用字符串定义目标Activity的完整类名
+    private static final String LOADER_ACTIVITY_CLASS = "org.lsposed.lspatch.loader.LoaderActivity";
+
     public static void startLoaderActivity() {
         try {
             ActivityThread activityThread = ActivityThread.currentActivityThread();
@@ -42,8 +42,8 @@ public class LoaderActivityStarter {
                 return;
             }
 
-            // 启动LoaderActivity（使用正确的常量）
-            Class<?> loaderActivityClass = Class.forName(Constants.LOADER_ACTIVITY_CLASS);
+            // 启动LoaderActivity（直接使用字符串类名）
+            Class<?> loaderActivityClass = Class.forName(LOADER_ACTIVITY_CLASS);
             Intent intent = new Intent();
             intent.setClass(app, loaderActivityClass);
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
@@ -68,12 +68,12 @@ public class LoaderActivityStarter {
                     "getActivityClientRecord", String.class);
             getActivityClientRecordMethod.setAccessible(true);
             Object record = getActivityClientRecordMethod.invoke(activityThread, 
-                    Constants.LOADER_ACTIVITY_CLASS); // 使用正确的常量
+                    LOADER_ACTIVITY_CLASS); // 使用字符串类名
             return record != null;
         } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
-            // 修正日志参数
             XLog.d(TAG, "Check loader activity loaded failed: " + e.getMessage());
             return false;
         }
     }
 }
+    
