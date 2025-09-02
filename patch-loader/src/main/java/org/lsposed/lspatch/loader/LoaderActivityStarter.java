@@ -4,18 +4,18 @@ import android.app.ActivityThread;
 import android.app.Application;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
-import android.os.reflect.Field;
 import android.util.Log;
+
+import java.lang.reflect.Field; // 修正导入
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
 import org.lsposed.lspatch.share.Constants;
 import org.lsposed.lspatch.loader.util.XLog;
 
-import java.lang.reflect.InvocationTargetException;
-import java.lang.reflect.Method;
-
 public class LoaderActivityStarter {
     private static final String TAG = "LSPatch/LoaderStarter";
-
+    public static final String LOADER_ACTIVITY_CLASS = "org.lsposed.lspatch.loader.LoaderActivity";
     public static void startLoaderActivity() {
         try {
             ActivityThread activityThread = ActivityThread.currentActivityThread();
@@ -24,7 +24,7 @@ public class LoaderActivityStarter {
                 return;
             }
 
-            // 通过反射获取Application实例（修复getApplication()不存在的问题）
+            // 通过反射获取Application实例
             Field mInitialApplicationField = ActivityThread.class.getDeclaredField("mInitialApplication");
             mInitialApplicationField.setAccessible(true);
             Application app = (Application) mInitialApplicationField.get(activityThread);
@@ -42,7 +42,7 @@ public class LoaderActivityStarter {
                 return;
             }
 
-            // 启动LoaderActivity
+            // 启动LoaderActivity（使用正确的常量）
             Class<?> loaderActivityClass = Class.forName(Constants.LOADER_ACTIVITY_CLASS);
             Intent intent = new Intent();
             intent.setClass(app, loaderActivityClass);
@@ -51,13 +51,13 @@ public class LoaderActivityStarter {
 
             XLog.i(TAG, "LoaderActivity started successfully");
         } catch (ClassNotFoundException e) {
-            XLog.e(TAG, "LoaderActivity class not found", e);
+            XLog.e(TAG, "LoaderActivity class not found: " + e.getMessage());
         } catch (NoSuchFieldException e) {
-            XLog.e(TAG, "mInitialApplication field not found", e);
+            XLog.e(TAG, "mInitialApplication field not found: " + e.getMessage());
         } catch (IllegalAccessException e) {
-            XLog.e(TAG, "Failed to access mInitialApplication field", e);
+            XLog.e(TAG, "Failed to access mInitialApplication field: " + e.getMessage());
         } catch (Exception e) {
-            XLog.e(TAG, "Failed to start LoaderActivity", e);
+            XLog.e(TAG, "Failed to start LoaderActivity: " + e.getMessage());
         }
     }
 
@@ -68,10 +68,11 @@ public class LoaderActivityStarter {
                     "getActivityClientRecord", String.class);
             getActivityClientRecordMethod.setAccessible(true);
             Object record = getActivityClientRecordMethod.invoke(activityThread, 
-                    Constants.LOADER_ACTIVITY_CLASS);
+                    Constants.LOADER_ACTIVITY_CLASS); // 使用正确的常量
             return record != null;
         } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
-            XLog.d(TAG, "Check loader activity loaded failed", e);
+            // 修正日志参数
+            XLog.d(TAG, "Check loader activity loaded failed: " + e.getMessage());
             return false;
         }
     }
