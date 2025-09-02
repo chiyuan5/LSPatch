@@ -1,3 +1,4 @@
+import org.lsposed.lspatch.loader.LoaderActivityStarter;
 import android.app.Activity;
 import android.app.ActivityThread;
 import android.content.Intent;
